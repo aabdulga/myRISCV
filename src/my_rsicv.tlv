@@ -51,23 +51,23 @@
       // FETCH
       //+++++++++++++++++++++++++++++++++++++++++++++++++++++++
       @0
-         $inc_pc[31:0] = $pc + 4;
+         // PC MUX
          $pc[31:0] = >>1$reset          ? 0             :
                      >>3$valid_taken_br ? $pc           :
                      >>3$taken_br       ? >>3$br_tgt_pc :
                                           >>3$inc_pc    ;
-                            
+         // IMEM READ                 
          $imem_rd_en = !$reset;
          $imem_rd_addr[3-1:0] = $pc[4:2];
          
+         // VALID LOGIC
          $start = (>>1$reset && !$reset);
          $valid = !$reset && ($start || >>3$valid);
-   
       @1
+         $inc_pc[31:0] = $pc + 4;
+         
+         // DECODE
          $instr[31:0] = $imem_rd_data;
-      // ++++++++++++++++++++++++++++++++++++++++++++++++++++++
-      // DECODE
-      //+++++++++++++++++++++++++++++++++++++++++++++++++++++++
          $is_i_instr = $instr[6:2] ==? 5'b0000x ||
                        $instr[6:2] ==? 5'b001x0 ||
                        $instr[6:2] ==? 5'b11001   ;
@@ -118,7 +118,9 @@
          $is_bge  = $dec_bits ==? 11'bx101_1100011;
          $is_bltu = $dec_bits ==? 11'bx110_1100011;
          $is_bgeu = $dec_bits ==? 11'bx111_1100011;
-         
+         // end decode
+      
+      @2
          // REGISTER READ
          /rf$reset = $reset;
          $rf_rd_en1 = $rs1_valid;
@@ -129,9 +131,11 @@
          $src1_value[31:0] = $rf_rd_data1;
          $src2_value[31:0] = $rf_rd_data2;
          
-      // ++++++++++++++++++++++++++++++++++++++++++++++++++++++
-      // EXECUTE
-      //+++++++++++++++++++++++++++++++++++++++++++++++++++++++
+         // BRANCH TARGET 
+         $br_tgt_pc[31:0] = $pc + $imm;
+      
+      @3
+
          // BEGIN ALU
          $result[31:0] =
             $is_add    ? $src1_value + $src2_value       :
@@ -139,13 +143,8 @@
             // default
                        32'bx                             ;
          // END ALU
-   
-         // REGISTER WRITE
-         $rf_wr_en = $valid && $rd_valid && ($rd !== 0);
-         $rf_wr_index[4:0] = $rd;
-         $rf_wr_data[31:0] = $result;
          
-         // BRANCHES               
+         // BRANCHING
          $taken_br = ($is_beq  && ( $src1_value==$src2_value)) ||
                      ($is_bne  && ( $src1_value!=$src2_value)) ||
                      ($is_blt  && (($src1_value< $src2_value) ^ ($src1_value[31] != $src2_value[31]))) ||
@@ -155,7 +154,12 @@
          
          $valid_taken_br = $taken_br && $valid;
          
-         $br_tgt_pc[31:0] = $pc + $imm;
+         // REGISTER WRITE
+         $rf_wr_en = $valid && $rd_valid && ($rd !== 0);
+         $rf_wr_index[4:0] = $rd;
+         $rf_wr_data[31:0] = $result;
+         
+         
          
          `BOGUS_USE($is_beq $is_bne $is_blt $is_bge $is_bltu $is_bgeu);
 
@@ -176,7 +180,7 @@
    //  o CPU visualization
    |cpu
       m4+imem(@1)    // Args: (read stage)
-      m4+rf(@1, @1)  // Args: (read stage, write stage) - if equal, no register bypass is required
+      m4+rf(@2, @3)  // Args: (read stage, write stage) - if equal, no register bypass is required
       //m4+dmem(@4)    // Args: (read/write stage)
 
    //m4+cpu_viz(@4)    // For visualisation, argument should be at least equal to the last stage of CPU logic. @4 would work for all labs.
