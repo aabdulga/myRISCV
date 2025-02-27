@@ -22,20 +22,6 @@
    //  r14 (a4): Sum
    // 
    // External to function:
-   //m4_asm(ADD, r10, r0, r0)             // Initialize r10 (a0) to 0.
-   // Function:
-   //m4_asm(ADD, r14, r10, r0)            // Initialize sum register a4 with 0x0
-   //m4_asm(ADDI, r12, r10, 1010)         // Store count of 10 in register a2.
-   //m4_asm(ADD, r13, r10, r0)            // Initialize intermediate sum register a3 with 0
-   // Loop:
-   //m4_asm(ADD, r14, r13, r14)           // Incremental addition
-   //m4_asm(ADDI, r13, r13, 1)            // Increment intermediate register by 1
-   //m4_asm(BLT, r13, r12, 1111111111000) // If a3 is less than a2, branch to label named <loop>
-   //m4_asm(ADD, r10, r14, r0)            // Store final result to register a0 so that it can be read by main program
-   
-   
-   // SIMPLE PROG
-   // External to function:
    m4_asm(ADD, r10, r0, r0)             // Initialize r10 (a0) to 0.
    // Function:
    m4_asm(ADD, r14, r10, r0)            // Initialize sum register a4 with 0x0
