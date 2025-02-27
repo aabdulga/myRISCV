@@ -51,12 +51,18 @@
       // FETCH
       //+++++++++++++++++++++++++++++++++++++++++++++++++++++++
       @0
-         $pc[31:0] = >>1$reset    ? 0             :
-                     >>1$taken_br ? >>1$br_tgt_pc :
-                                    >>1$pc + 4    ;
-                             
+         $inc_pc[31:0] = $pc + 4;
+         $pc[31:0] = >>1$reset          ? 0             :
+                     >>3$valid_taken_br ? $pc           :
+                     >>3$taken_br       ? >>3$br_tgt_pc :
+                                          >>3$inc_pc    ;
+                            
          $imem_rd_en = !$reset;
          $imem_rd_addr[3-1:0] = $pc[4:2];
+         
+         $start = (>>1$reset && !$reset);
+         $valid = !$reset && ($start || >>3$valid);
+   
       @1
          $instr[31:0] = $imem_rd_data;
       // ++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -135,7 +141,7 @@
          // END ALU
    
          // REGISTER WRITE
-         $rf_wr_en = $rd_valid && ($rd !== 0);
+         $rf_wr_en = $valid && $rd_valid && ($rd !== 0);
          $rf_wr_index[4:0] = $rd;
          $rf_wr_data[31:0] = $result;
          
@@ -146,6 +152,8 @@
                      ($is_bge  && (($src1_value>=$src2_value) ^ ($src1_value[31] != $src2_value[31]))) ||
                      ($is_bltu && ( $src1_value< $src2_value)) ||
                      ($is_bgeu && ( $src1_value>=$src2_value));
+         
+         $valid_taken_br = $taken_br && $valid;
          
          $br_tgt_pc[31:0] = $pc + $imm;
          
