@@ -107,15 +107,44 @@
          // individual instructions
          $dec_bits[10:0] = {$funct7[5], $funct3, $opcode};
          
-         $is_add  = $dec_bits ==? 11'b0000_0110011;
-         $is_addi = $dec_bits ==? 11'bx000_0010011;
+         $is_beq   = $dec_bits ==? 11'bx_000_1100011;
+         $is_bne   = $dec_bits ==? 11'bx_001_1100011;
+         $is_blt   = $dec_bits ==? 11'bx_100_1100011;
+         $is_bge   = $dec_bits ==? 11'bx_101_1100011;
+         $is_bltu  = $dec_bits ==? 11'bx_110_1100011;
+         $is_bgeu  = $dec_bits ==? 11'bx_111_1100011;
          
-         $is_beq  = $dec_bits ==? 11'bx000_1100011;
-         $is_bne  = $dec_bits ==? 11'bx001_1100011;
-         $is_blt  = $dec_bits ==? 11'bx100_1100011;
-         $is_bge  = $dec_bits ==? 11'bx101_1100011;
-         $is_bltu = $dec_bits ==? 11'bx110_1100011;
-         $is_bgeu = $dec_bits ==? 11'bx111_1100011;
+         $is_sltiu = $dec_bits ==? 11'bx_011_0010011;
+         $is_xori  = $dec_bits ==? 11'bx_100_0010011;
+         $is_ori   = $dec_bits ==? 11'bx_110_0010011;
+         $is_andi  = $dec_bits ==? 11'bx_111_0010011;
+         $is_slli  = $dec_bits ==? 11'b0_001_0010011;
+         $is_srli  = $dec_bits ==? 11'b0_101_0010011;
+         $is_srai  = $dec_bits ==? 11'b1_101_0010011;
+         
+         $is_add   = $dec_bits ==? 11'b0_000_0110011;
+         $is_sub   = $dec_bits ==? 11'b1_000_0110011;
+         $is_sll   = $dec_bits ==? 11'b0_001_0110011;
+         $is_slt   = $dec_bits ==? 11'b0_010_0110011;
+         $is_sltu  = $dec_bits ==? 11'b0_011_0110011;
+         $is_xor   = $dec_bits ==? 11'b0_100_0110011;
+         $is_srl   = $dec_bits ==? 11'b0_101_0110011;
+         $is_sra   = $dec_bits ==? 11'b1_101_0110011;
+         $is_or    = $dec_bits ==? 11'b0_110_0110011;
+         $is_and   = $dec_bits ==? 11'b0_111_0110011;
+         
+         $is_lui   = $dec_bits ==? 11'bx_xxx_0110111;
+         $is_auipc = $dec_bits ==? 11'bx_xxx_0010111;
+         $is_jal   = $dec_bits ==? 11'bx_xxx_1101111;
+         $is_jalr  = $dec_bits ==? 11'bx_000_1100111;
+         // all load treated the same for now
+         $is_load  = $opcode ==  7'b0000011 ||
+                     $opcode ==  7'b0100011  ;
+         
+         $is_addi  = $dec_bits ==? 11'bx_000_0010011;
+         $is_slti = $dec_bits ==?  11'bx_010_0010011;
+         
+         
          // end decode
       
       @2
@@ -137,10 +166,33 @@
          $br_tgt_pc[31:0] = $pc + $imm;
       
       @3
+         $sltu_rslt  = $src1_value < $src2_value;
+         $sltiu_rslt = $src1_value < $imm       ;
          // BEGIN ALU
          $result[31:0] =
-            $is_add    ? $src1_value + $src2_value       :
+            $is_andi   ? $src1_value & $imm              :
+            $is_ori    ? $src1_value | $imm              :
+            $is_xori   ? $src1_value ^ $imm              :
             $is_addi   ? $src1_value + $imm              :
+            $is_slli   ? $src1_value << $imm[5:0]        :
+            $is_srli   ? $src1_value >> $imm[5:0]        :
+            $is_and    ? $src1_value & $src2_value       :
+            $is_or     ? $src1_value | $src2_value       :
+            $is_xor    ? $src1_value ^ $src2_value       :
+            $is_srai   ? { {32{$src1_value[31]}}, $src1_value} >> $imm[4:0] :
+            $is_slt    ? ($src1_value[31] == $src2_value[31]) ? $sltu_rslt  : {31'b0, $src1_value[31]} :
+            $is_slti   ? ($src1_value[31] == $imm[31]       ) ? $sltiu_rslt : {31'b0, $src1_value[31]} :
+            $is_sra    ? { {32{$src1_value[31]}}, $src1_value} >> $src2_value[4:0] :
+            $is_add    ? $src1_value + $src2_value       :
+            $is_sub    ? $src1_value - $src2_value       :
+            $is_sll    ? $src1_value << $src2_value[4:0] :
+            $is_srl    ? $src1_value >> $src2_value[4:0] :
+            $is_sltu   ? $sltu_rslt                      :
+            $is_sltiu  ? $sltiu_rslt                     :
+            $is_lui    ? {$imm[31:12] , 12'b0}           :
+            $is_auipc  ? $pc + $imm                      :
+            $is_jal    ? $pc + 4                         :
+            $is_jalr   ? $pc + 4                         :
             // default
                        32'bx                             ;
          // END ALU
@@ -165,7 +217,7 @@
          
          
          
-         `BOGUS_USE($is_beq $is_bne $is_blt $is_bge $is_bltu $is_bgeu);
+         `BOGUS_USE($is_load);
 
       // Note: Because of the magic we are using for visualisation, if visualisation is enabled below,
       //       be sure to avoid having unassigned signals (which you might be using for random inputs)
