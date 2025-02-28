@@ -43,8 +43,6 @@
       @0
          $reset = *reset;
 
-
-
       // YOUR CODE HERE
       // ...
       // ++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -63,6 +61,7 @@
          // VALID LOGIC
          $start = (>>1$reset && !$reset);
          $valid = !$reset && ($start || >>3$valid);
+      
       @1
          $inc_pc[31:0] = $pc + 4;
          
@@ -128,14 +127,17 @@
          $rf_rd_index1[4:0] = $rs1;
          $rf_rd_index2[4:0] = $rs2;
          
-         $src1_value[31:0] = $rf_rd_data1;
-         $src2_value[31:0] = $rf_rd_data2;
+         // bypass logic
+         $bypass_rs1 = ($rs1==>>1$rd) && >>1$rf_wr_en;
+         $bypass_rs2 = ($rs2==>>1$rd) && >>1$rf_wr_en;
+         
+         $src1_value[31:0] = $bypass_rs1 ? >>1$result : $rf_rd_data1;
+         $src2_value[31:0] = $bypass_rs2 ? >>1$result : $rf_rd_data2;
          
          // BRANCH TARGET 
          $br_tgt_pc[31:0] = $pc + $imm;
       
       @3
-
          // BEGIN ALU
          $result[31:0] =
             $is_add    ? $src1_value + $src2_value       :
