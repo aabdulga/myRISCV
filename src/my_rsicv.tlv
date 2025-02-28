@@ -51,16 +51,15 @@
       @0
          // PC MUX
          $pc[31:0] = >>1$reset          ? 0             :
-                     >>3$valid_taken_br ? $pc           :
                      >>3$taken_br       ? >>3$br_tgt_pc :
-                                          >>3$inc_pc    ;
+                                          >>1$inc_pc    ;
          // IMEM READ                 
          $imem_rd_en = !$reset;
          $imem_rd_addr[3-1:0] = $pc[4:2];
          
          // VALID LOGIC
-         $start = (>>1$reset && !$reset);
-         $valid = !$reset && ($start || >>3$valid);
+         //$start = (>>1$reset && !$reset);
+         //$valid = !$reset && ($start || >>3$valid);
       
       @1
          $inc_pc[31:0] = $pc + 4;
@@ -153,9 +152,12 @@
                      ($is_bge  && (($src1_value>=$src2_value) ^ ($src1_value[31] != $src2_value[31]))) ||
                      ($is_bltu && ( $src1_value< $src2_value)) ||
                      ($is_bgeu && ( $src1_value>=$src2_value));
+
          
-         $valid_taken_br = $taken_br && $valid;
          
+         // Branch correction
+         $valid = !(>>1$taken_br || >>2$taken_br);
+
          // REGISTER WRITE
          $rf_wr_en = $valid && $rd_valid && ($rd !== 0);
          $rf_wr_index[4:0] = $rd;
