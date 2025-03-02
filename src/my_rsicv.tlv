@@ -32,12 +32,15 @@
    m4_asm(ADDI, r13, r13, 1)            // Increment intermediate register by 1
    m4_asm(BLT, r13, r12, 1111111111000) // If a3 is less than a2, branch to label named <loop>
    m4_asm(ADD, r10, r14, r0)            // Store final result to register a0 so that it can be read by main program
+   //m4_asm(SW, r0, r10, 100)
+   //m4_asm(LW, r15, r0, 100)
    
    //
    
    // Optional:
    // m4_asm(JAL, r7, 00000000000000000000) // Done. Jump to itself (infinite loop). (Up to 20-bit signed immediate plus implicit 0 bit (unlike JALR) provides byte address; last immediate bit should also be 0)
    m4_define_hier(['M4_IMEM'], M4_NUM_INSTRS)
+   //m4_define_hier(['M4_IMEM'], 16)
 
    |cpu
       @0
@@ -52,10 +55,11 @@
          // PC MUX
          $pc[31:0] = >>1$reset          ? 0             :
                      >>3$taken_br       ? >>3$br_tgt_pc :
+                     >>3$valid_load     ? >>3$inc_pc    :
                                           >>1$inc_pc    ;
          // IMEM READ                 
          $imem_rd_en = !$reset;
-         $imem_rd_addr[3-1:0] = $pc[4:2];
+         $imem_rd_addr[M4_IMEM_INDEX_CNT-1:0] = $pc[M4_IMEM_INDEX_CNT+2-1:2];
          
          // VALID LOGIC
          //$start = (>>1$reset && !$reset);
@@ -193,6 +197,8 @@
             $is_auipc  ? $pc + $imm                      :
             $is_jal    ? $pc + 4                         :
             $is_jalr   ? $pc + 4                         :
+            // load store addres
+            $valid_load ? $src1_value + $imm          :
             // default
                        32'bx                             ;
          // END ALU
@@ -204,20 +210,30 @@
                      ($is_bge  && (($src1_value>=$src2_value) ^ ($src1_value[31] != $src2_value[31]))) ||
                      ($is_bltu && ( $src1_value< $src2_value)) ||
                      ($is_bgeu && ( $src1_value>=$src2_value));
-
          
-         
-         // Branch correction
-         $valid = !(>>1$taken_br || >>2$taken_br);
+         $valid_load = $valid && $is_load;
+         // Branch and load shadow
+         $valid = !(>>1$taken_br || >>2$taken_br) &&
+                  !(>>1$is_load  || >>2$is_load );
 
          // REGISTER WRITE
-         $rf_wr_en = $valid && $rd_valid && ($rd !== 0);
+         $rf_wr_en = ($valid && $rd_valid && ($rd !== 0)) || // regular reg write
+                     >>2$valid_load;                         // load data
          $rf_wr_index[4:0] = $rd;
-         $rf_wr_data[31:0] = $result;
+         $rf_wr_data[31:0] = !$valid ? >>2$ld_data : $result; // load result appears after 2cc 
+                                                           // and $valid will be 0
          
          
-         
-         `BOGUS_USE($is_load);
+      @4
+         /dmem$reset = $reset;
+         $dmem_wr_en = $valid && $is_s_instr;
+         $dmem_addr[3:0]  = $result[5:2];
+         $dmem_wr_data[31:0] = $src2_value;
+         $dmem_rd_en = $valid_load;
+         $ld_data[31:0] = $dmem_rd_data;
+
+         //$dmem_rd_index[5:0] 
+         //`BOGUS_USE($is_load);
 
       // Note: Because of the magic we are using for visualisation, if visualisation is enabled below,
       //       be sure to avoid having unassigned signals (which you might be using for random inputs)
@@ -225,8 +241,8 @@
 
    
    // Assert these to end simulation (before Makerchip cycle limit).
-   //*passed = *cyc_cnt > 20;
-   *passed = |cpu/xreg[10]>>5$value == (1+2+3+4+5+6+7+8+9);
+   *passed = *cyc_cnt > 80;
+   //passed = |cpu/xreg[10]>>10$value == (1+2+3+4+5+6+7+8+9);
    *failed = 1'b0;
    
    // Macro instantiations for:
@@ -237,7 +253,7 @@
    |cpu
       m4+imem(@1)    // Args: (read stage)
       m4+rf(@2, @3)  // Args: (read stage, write stage) - if equal, no register bypass is required
-      //m4+dmem(@4)    // Args: (read/write stage)
+      m4+dmem(@4)    // Args: (read/write stage)
 
    //m4+cpu_viz(@4)    // For visualisation, argument should be at least equal to the last stage of CPU logic. @4 would work for all labs.
 \SV
