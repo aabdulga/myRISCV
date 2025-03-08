@@ -22,17 +22,17 @@
    //  r14 (a4): Sum
    // 
    // External to function:
-   m4_asm(ADD, r10, r0, r0)             // Initialize r10 (a0) to 0.
+   m4_asm(ADD, r10, r0, r0)   //0          // Initialize r10 (a0) to 0.
    // Function:
-   m4_asm(ADD, r14, r10, r0)            // Initialize sum register a4 with 0x0
-   m4_asm(ADDI, r12, r10, 1010)         // Store count of 10 in register a2.
-   m4_asm(ADD, r13, r10, r0)            // Initialize intermediate sum register a3 with 0
+   m4_asm(ADD, r14, r10, r0)     //1       // Initialize sum register a4 with 0x0
+   m4_asm(ADDI, r12, r10, 1010)    //2     // Store count of 10 in register a2.
+   m4_asm(ADD, r13, r10, r0)    //3        // Initialize intermediate sum register a3 with 0
    // Loop:
-   m4_asm(ADD, r14, r13, r14)           // Incremental addition
-   m4_asm(ADDI, r13, r13, 1)            // Increment intermediate register by 1
-   m4_asm(BLT, r13, r12, 1111111111000) // If a3 is less than a2, branch to label named <loop>
-   m4_asm(ADD, r10, r14, r0)            // Store final result to register a0 so that it can be read by main program
-   //m4_asm(SW, r0, r10, 100)
+   m4_asm(ADD, r14, r13, r14)      //4     // Incremental addition
+   m4_asm(ADDI, r13, r13, 1)        //5    // Increment intermediate register by 1
+   m4_asm(BLT, r13, r12, 1111111111000) //6 // If a3 is less than a2, branch to label named <loop>
+   m4_asm(ADD, r10, r14, r0)   //7         // Store final result to register a0 so that it can be read by main program
+   m4_asm(SW, r0, r10, 100)
    //m4_asm(LW, r15, r0, 100)
    
    //
@@ -142,9 +142,8 @@
          $is_jal   = $dec_bits ==? 11'bx_xxx_1101111;
          $is_jalr  = $dec_bits ==? 11'bx_000_1100111;
          // all load treated the same for now
-         $is_load  = $opcode ==  7'b0000011 ||
-                     $opcode ==  7'b0100011  ;
-         
+         $is_load  = $opcode ==  7'b0000011;
+
          $is_addi  = $dec_bits ==? 11'bx_000_0010011;
          $is_slti = $dec_bits ==?  11'bx_010_0010011;
          
@@ -170,6 +169,7 @@
          $br_tgt_pc[31:0] = $pc + $imm;
       
       @3
+         $DEBUG_AT3_imem_rd_addr[3:0] = $imem_rd_addr;
          $sltu_rslt  = $src1_value < $src2_value;
          $sltiu_rslt = $src1_value < $imm       ;
          // BEGIN ALU
@@ -214,7 +214,7 @@
          $valid_load = $valid && $is_load;
          // Branch and load shadow
          $valid = !(>>1$taken_br || >>2$taken_br) &&
-                  !(>>1$is_load  || >>2$is_load );
+                  !(>>1$is_valid_load  || >>2$is_valid_load );
 
          // REGISTER WRITE
          $rf_wr_en = ($valid && $rd_valid && ($rd !== 0)) || // regular reg write
