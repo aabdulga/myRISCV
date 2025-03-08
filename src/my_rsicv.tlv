@@ -33,7 +33,7 @@
    m4_asm(BLT, r13, r12, 1111111111000) //6 // If a3 is less than a2, branch to label named <loop>
    m4_asm(ADD, r10, r14, r0)   //7         // Store final result to register a0 so that it can be read by main program
    m4_asm(SW, r0, r10, 100)
-   //m4_asm(LW, r15, r0, 100)
+   m4_asm(LW, r15, r0, 100)
    
    //
    
@@ -198,7 +198,9 @@
             $is_jal    ? $pc + 4                         :
             $is_jalr   ? $pc + 4                         :
             // load store addres
-            $valid_load ? $src1_value + $imm          :
+            $valid_load ? $src1_value + $imm             :
+            $is_s_instr ? $src1_value + $imm             :
+            
             // default
                        32'bx                             ;
          // END ALU
@@ -214,7 +216,7 @@
          $valid_load = $valid && $is_load;
          // Branch and load shadow
          $valid = !(>>1$taken_br || >>2$taken_br) &&
-                  !(>>1$is_valid_load  || >>2$is_valid_load );
+                  !(>>1$valid_load  || >>2$valid_load );
 
          // REGISTER WRITE
          $rf_wr_en = ($valid && $rd_valid && ($rd !== 0)) || // regular reg write
