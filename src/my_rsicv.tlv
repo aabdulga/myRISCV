@@ -32,8 +32,8 @@
    m4_asm(ADDI, r13, r13, 1)        //5    // Increment intermediate register by 1
    m4_asm(BLT, r13, r12, 1111111111000) //6 // If a3 is less than a2, branch to label named <loop>
    m4_asm(ADD, r10, r14, r0)   //7         // Store final result to register a0 so that it can be read by main program
-   m4_asm(SW, r0, r10, 100)
-   m4_asm(LW, r15, r0, 100)
+   m4_asm(SW, r0, r10, 100) //8
+   m4_asm(LW, r15, r0, 100) // 9
    
    //
    
@@ -170,6 +170,8 @@
       
       @3
          $DEBUG_AT3_imem_rd_addr[3:0] = $imem_rd_addr;
+         $DEBUG_AT3_rd_valid = $rd_valid;
+         
          $sltu_rslt  = $src1_value < $src2_value;
          $sltiu_rslt = $src1_value < $imm       ;
          // BEGIN ALU
@@ -219,9 +221,11 @@
                   !(>>1$valid_load  || >>2$valid_load );
 
          // REGISTER WRITE
-         $rf_wr_en = ($valid && $rd_valid && ($rd !== 0)) || // regular reg write
+         $rf_wr_en = ($valid && $rd_valid && ($rd !== 0) && !$valid_load) || // regular reg write
                      >>2$valid_load;                         // load data
-         $rf_wr_index[4:0] = $rd;
+   
+         //$rf_wr_index[4:0] = $rd;
+         $rf_wr_index[4:0] = >>2$valid_load ? >>2$rd : $rd;
          $rf_wr_data[31:0] = !$valid ? >>2$ld_data : $result; // load result appears after 2cc 
                                                            // and $valid will be 0
          
@@ -232,6 +236,7 @@
          $dmem_addr[3:0]  = $result[5:2];
          $dmem_wr_data[31:0] = $src2_value;
          $dmem_rd_en = $valid_load;
+      @5
          $ld_data[31:0] = $dmem_rd_data;
 
          //$dmem_rd_index[5:0] 
@@ -243,8 +248,8 @@
 
    
    // Assert these to end simulation (before Makerchip cycle limit).
-   *passed = *cyc_cnt > 80;
-   //passed = |cpu/xreg[10]>>10$value == (1+2+3+4+5+6+7+8+9);
+ 
+   passed = |cpu/xreg[10]>>10$value == (1+2+3+4+5+6+7+8+9);
    *failed = 1'b0;
    
    // Macro instantiations for:
